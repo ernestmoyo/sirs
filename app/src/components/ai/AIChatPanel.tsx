@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Brain, X, Send, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
-import { callSIRSAI, CHAT_SYSTEM_PROMPT } from "@/lib/ai";
+import { callSIRSAI, buildChatSystemPrompt } from "@/lib/ai";
 import type { AIMessage } from "@/lib/ai";
 
 const WELCOME_MESSAGE: AIMessage = {
@@ -63,7 +63,7 @@ export default function AIChatPanel() {
 
     const result = await callSIRSAI({
       messages: apiMessages,
-      systemPrompt: CHAT_SYSTEM_PROMPT,
+      systemPrompt: buildChatSystemPrompt(),
       maxTokens: 512,
     });
 

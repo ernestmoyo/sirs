@@ -1,5 +1,7 @@
 // SIRS AI Integration - Shared utilities for Claude API calls
 
+import { sadcCountries, activeEvents, triggers, scenarios, recentActivities } from "@/lib/mock-data";
+
 export interface AIMessage {
   role: "user" | "assistant";
   content: string;
@@ -33,13 +35,71 @@ export async function callSIRSAI({
   }
 }
 
+// ===== Helper: format large numbers =====
+
+function fmtPop(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return n.toLocaleString();
+}
+
+// ===== Dynamic data summary from mock-data =====
+
+function buildDataContext(): string {
+  const totalAffected = sadcCountries.reduce((s, c) => s + c.affectedPopulation, 0);
+  const highRiskCountries = sadcCountries.filter(c => c.riskScore >= 0.6);
+  const redTriggers = triggers.filter(t => t.status === "red");
+  const amberTriggers = triggers.filter(t => t.status === "amber");
+
+  // Facility totals from districts
+  let totalHealth = 0, healthAtRisk = 0, totalWash = 0, washAtRisk = 0, totalSchools = 0, schoolsAtRisk = 0;
+  for (const c of sadcCountries) {
+    for (const d of c.districts) {
+      totalHealth += d.facilities.health;
+      healthAtRisk += d.facilities.healthAtRisk;
+      totalWash += d.facilities.wash;
+      washAtRisk += d.facilities.washAtRisk;
+      totalSchools += d.facilities.schools;
+      schoolsAtRisk += d.facilities.schoolsAtRisk;
+    }
+  }
+
+  const eventLines = activeEvents
+    .map(e => `${e.name} (${e.severity}, ${e.countries.join(" + ")}, ${fmtPop(e.affectedPopulation)} affected, status: ${e.status})`)
+    .join("; ");
+
+  const redTriggerLines = redTriggers
+    .map(t => `${t.name} [${t.organization}]: ${t.currentValue.toFixed(2)}/${t.threshold.toFixed(2)} (${Math.round((t.currentValue / t.threshold) * 100)}% of threshold)`)
+    .join("; ");
+
+  const amberTriggerLines = amberTriggers
+    .map(t => `${t.name} [${t.organization}]: ${t.currentValue.toFixed(2)}/${t.threshold.toFixed(2)}`)
+    .join("; ");
+
+  const countryRiskSummary = sadcCountries
+    .filter(c => c.riskScore >= 0.5)
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .map(c => `${c.name}: risk ${(c.riskScore * 10).toFixed(1)}/10, ${fmtPop(c.affectedPopulation)} affected, pop ${fmtPop(c.population)}`)
+    .join("; ");
+
+  return `LIVE PLATFORM DATA:
+- Total affected population across SADC: ${fmtPop(totalAffected)}
+- Countries tracked: ${sadcCountries.length} SADC member states
+- High-risk countries (score >= 6/10): ${highRiskCountries.length} — ${highRiskCountries.map(c => c.name).join(", ")}
+- Active events (${activeEvents.length}): ${eventLines}
+- Triggers EXCEEDED (${redTriggers.length}): ${redTriggerLines || "None"}
+- Triggers at WARNING (${amberTriggers.length}): ${amberTriggerLines || "None"}
+- Country risk summary: ${countryRiskSummary}
+- Facilities at risk: ${healthAtRisk} of ${totalHealth} health, ${washAtRisk} of ${totalWash} WASH, ${schoolsAtRisk} of ${totalSchools} schools
+- Active scenarios: ${scenarios.length} (${scenarios.map(s => `${s.name} [${s.status}]`).join("; ")})`;
+}
+
 // ===== System Prompts =====
 
-export const CHAT_SYSTEM_PROMPT = `You are SIRS AI, a regional risk analyst assistant for the SADC Disaster Risk Reduction Unit. You have expertise in humanitarian response, early warning systems, and disaster risk in southern Africa.
+export function buildChatSystemPrompt(): string {
+  return `You are SIRS AI, a regional risk analyst assistant for the SADC Disaster Risk Reduction Unit. You have expertise in humanitarian response, early warning systems, and disaster risk in southern Africa.
 
-Current active events: Tropical Cyclone Batsirai II (Critical - Mozambique, Madagascar, 1.9M affected), Zambezi Basin Flooding (High - Malawi, Mozambique, Zambia, Zimbabwe, 980K affected), Southern Madagascar Drought (Moderate - Madagascar, 450K affected), Dar es Salaam Urban Flooding (Watch - Tanzania, 120K affected).
-
-Active triggers exceeded: WFP AA Southern Malawi Floods 0.83/0.70, IFRC DREF Cyclone Mozambique 0.91/0.65.
+${buildDataContext()}
 
 RESPONSE RULES:
 - Keep responses SHORT — max 3-5 bullet points or 2-3 short paragraphs
@@ -47,7 +107,9 @@ RESPONSE RULES:
 - Do NOT use emoji
 - Use plain text with simple bullet points (-)
 - Be direct and conversational, like a colleague briefing you quickly
-- Only go into detail if the user specifically asks for it`;
+- Only go into detail if the user specifically asks for it
+- ALWAYS use the exact numbers from LIVE PLATFORM DATA above — never make up or round differently`;
+}
 
 export const SITREP_SYSTEM_PROMPT = `You are a professional humanitarian situation report writer for the SADC Disaster Risk Reduction Unit. You write concise, factual, operational reports following OCHA SitRep conventions. Use clear section headers, specific numbers, and actionable language.`;
 
@@ -67,16 +129,15 @@ export function buildSitRepPrompt(
     year: "numeric",
   });
 
+  const recentActionLines = recentActivities
+    .slice(0, 5)
+    .map(a => `${a.action}: ${a.detail}`)
+    .join("; ");
+
   return `Generate a ${reportType} for ${audience} with ${tone} tone covering ${coverage}.
 
-CURRENT SITUATION DATA:
-- Active Events: Tropical Cyclone Batsirai II (Critical, Mozambique+Madagascar, 1.9M affected), Zambezi Basin Flooding (High, 4 countries, 980K affected), Southern Madagascar Drought (Moderate, 450K affected), Dar es Salaam Urban Flooding (Watch, 120K affected)
-- Total affected population: 8.7M across SADC region
-- Countries at high risk: 6 of 16 SADC members
-- Active triggers EXCEEDED: WFP AA Southern Malawi (0.83/0.70), IFRC DREF Cyclone Mozambique (0.91/0.65)
-- Triggers at WARNING: 3 additional triggers approaching threshold
-- Sector impact: 812 of 3,500 health+WASH facilities at risk (23%), 1.9M IPC Phase 3+ food insecure, 6 markets disrupted, High crop loss risk, ~850K affected farming HH
-- Recent actions: Cyclone Batsirai II Sofala Landfall scenario completed, Beira Health Facility assessment deployed to 145 facilities, SADC Regional Cyclone Advisory #3 published, INFORM Subnational Risk Index Q1 2026 ingested
+${buildDataContext()}
+- Recent actions: ${recentActionLines}
 
 Format with these sections: Situation Overview, Key Figures, Priority Actions, Sector Updates, Outlook & Recommendations. Date the report ${today}.`;
 }
