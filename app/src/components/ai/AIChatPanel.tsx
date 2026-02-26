@@ -64,7 +64,7 @@ export default function AIChatPanel() {
     const result = await callSIRSAI({
       messages: apiMessages,
       systemPrompt: CHAT_SYSTEM_PROMPT,
-      maxTokens: 1024,
+      maxTokens: 512,
     });
 
     const assistantMessage: AIMessage = {
