@@ -4,6 +4,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import AIChatPanel from "../ai/AIChatPanel";
 import { clsx } from "clsx";
 
 interface SidebarContextType {
@@ -78,6 +79,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {children}
           </main>
         </div>
+
+        {/* AI Chat Assistant */}
+        <AIChatPanel />
       </div>
     </SidebarContext.Provider>
   );

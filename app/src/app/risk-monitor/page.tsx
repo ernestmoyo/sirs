@@ -6,8 +6,9 @@ import Card, { CardHeader, CardTitle } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import ProgressBar from "@/components/ui/ProgressBar";
-import { sadcCountries } from "@/lib/mock-data";
+import { sadcCountries, activeEvents, triggers } from "@/lib/mock-data";
 import type { CountryRisk, DistrictRisk } from "@/lib/mock-data";
+import AIRiskBrief from "@/components/ai/AIRiskBrief";
 import { formatNumber, getRiskLevel, getRiskColor, getRiskBadgeClass } from "@/lib/utils";
 import {
   RadarChart,
@@ -36,6 +37,33 @@ import {
   Filter,
   Search,
 } from "lucide-react";
+
+// -- Helpers for AI risk brief --
+function getCountryEvents(countryName: string): string {
+  const countryEvents = activeEvents.filter((e) =>
+    e.countries.includes(countryName)
+  );
+  if (countryEvents.length === 0) return "No active events.";
+  return countryEvents
+    .map(
+      (e) =>
+        `${e.name} (${e.severity}, ${e.affectedPopulation.toLocaleString()} affected, status: ${e.status})`
+    )
+    .join("; ");
+}
+
+function getCountryTriggerStatus(countryName: string): string {
+  const countryTriggers = triggers.filter(
+    (t) => t.country === countryName || t.country === "Regional"
+  );
+  if (countryTriggers.length === 0) return "No active triggers.";
+  return countryTriggers
+    .map(
+      (t) =>
+        `${t.name} [${t.organization}]: ${t.currentValue.toFixed(2)}/${t.threshold.toFixed(2)} (${t.status.toUpperCase()})`
+    )
+    .join("; ");
+}
 
 // -- Time horizons for selector --
 const timeHorizons = [
@@ -400,9 +428,7 @@ export default function RiskMonitorPage() {
                     <button
                       onClick={() => {
                         setSelectedCountry(c.id);
-                        if (hasDistricts) {
-                          setExpandedCountry(isExpanded ? null : c.id);
-                        }
+                        setExpandedCountry(isExpanded ? null : c.id);
                       }}
                       className={`flex w-full items-center gap-4 px-5 py-4 text-left transition-colors ${
                         c.id === selectedCountry
@@ -412,14 +438,10 @@ export default function RiskMonitorPage() {
                     >
                       {/* Expand icon */}
                       <div className="w-5 shrink-0">
-                        {hasDistricts ? (
-                          isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-slate-400" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-500" />
-                          )
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-slate-400" />
                         ) : (
-                          <div className="h-4 w-4" />
+                          <ChevronRight className="h-4 w-4 text-slate-500" />
                         )}
                       </div>
 
@@ -520,65 +542,84 @@ export default function RiskMonitorPage() {
                       </div>
                     </button>
 
-                    {/* District Drill-Down */}
-                    {isExpanded && hasDistricts && (
+                    {/* District Drill-Down + AI Risk Brief */}
+                    {isExpanded && (
                       <div className="border-t border-slate-700/20 bg-slate-900/30">
-                        <div className="px-5 py-2">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
-                            District-Level Breakdown
-                          </span>
-                        </div>
-                        {c.districts.map((dist) => (
-                          <div
-                            key={dist.id}
-                            className="flex items-center gap-4 border-t border-slate-800/50 px-5 py-3 pl-14"
-                          >
-                            <MapPin
-                              className="h-3.5 w-3.5 shrink-0"
-                              style={{ color: getRiskColor(dist.riskScore) }}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-slate-300">
-                                  {dist.name}
-                                </span>
-                                <Badge className={getRiskBadgeClass(dist.riskScore)}>
-                                  {getRiskLevel(dist.riskScore)} ({(dist.riskScore * 10).toFixed(1)})
-                                </Badge>
-                              </div>
-                              <div className="mt-0.5 flex items-center gap-3 text-[10px] text-slate-500">
-                                <span className="flex items-center gap-0.5">
-                                  <Users className="h-2.5 w-2.5" />
-                                  {formatNumber(dist.affectedPopulation)} affected
-                                </span>
-                                <span className="flex items-center gap-0.5">
-                                  <Heart className="h-2.5 w-2.5" />
-                                  {dist.facilities.healthAtRisk}/{dist.facilities.health} health
-                                </span>
-                                <span className="flex items-center gap-0.5">
-                                  <Droplets className="h-2.5 w-2.5" />
-                                  {dist.facilities.washAtRisk}/{dist.facilities.wash} WASH
-                                </span>
-                                <span className="flex items-center gap-0.5">
-                                  <GraduationCap className="h-2.5 w-2.5" />
-                                  {dist.facilities.schoolsAtRisk}/{dist.facilities.schools} schools
-                                </span>
-                              </div>
+                        {hasDistricts && (
+                          <>
+                            <div className="px-5 py-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                                District-Level Breakdown
+                              </span>
                             </div>
-                            {/* District mini risk bar */}
-                            <div className="hidden w-24 shrink-0 sm:block">
-                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/50">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{
-                                    width: `${dist.riskScore * 100}%`,
-                                    backgroundColor: getRiskColor(dist.riskScore),
-                                  }}
+                            {c.districts.map((dist) => (
+                              <div
+                                key={dist.id}
+                                className="flex items-center gap-4 border-t border-slate-800/50 px-5 py-3 pl-14"
+                              >
+                                <MapPin
+                                  className="h-3.5 w-3.5 shrink-0"
+                                  style={{ color: getRiskColor(dist.riskScore) }}
                                 />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-slate-300">
+                                      {dist.name}
+                                    </span>
+                                    <Badge className={getRiskBadgeClass(dist.riskScore)}>
+                                      {getRiskLevel(dist.riskScore)} ({(dist.riskScore * 10).toFixed(1)})
+                                    </Badge>
+                                  </div>
+                                  <div className="mt-0.5 flex items-center gap-3 text-[10px] text-slate-500">
+                                    <span className="flex items-center gap-0.5">
+                                      <Users className="h-2.5 w-2.5" />
+                                      {formatNumber(dist.affectedPopulation)} affected
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Heart className="h-2.5 w-2.5" />
+                                      {dist.facilities.healthAtRisk}/{dist.facilities.health} health
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Droplets className="h-2.5 w-2.5" />
+                                      {dist.facilities.washAtRisk}/{dist.facilities.wash} WASH
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                      <GraduationCap className="h-2.5 w-2.5" />
+                                      {dist.facilities.schoolsAtRisk}/{dist.facilities.schools} schools
+                                    </span>
+                                  </div>
+                                </div>
+                                {/* District mini risk bar */}
+                                <div className="hidden w-24 shrink-0 sm:block">
+                                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/50">
+                                    <div
+                                      className="h-full rounded-full"
+                                      style={{
+                                        width: `${dist.riskScore * 100}%`,
+                                        backgroundColor: getRiskColor(dist.riskScore),
+                                      }}
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        ))}
+                            ))}
+                          </>
+                        )}
+
+                        {/* AI Risk Brief */}
+                        <div className="px-5 pb-4 pt-2">
+                          <AIRiskBrief
+                            countryName={c.name}
+                            riskScore={c.riskScore}
+                            hazardScore={c.hazardScore}
+                            exposureScore={c.exposureScore}
+                            vulnerabilityScore={c.vulnerabilityScore}
+                            affectedPopulation={c.affectedPopulation}
+                            activeAlerts={c.activeAlerts}
+                            events={getCountryEvents(c.name)}
+                            triggerStatus={getCountryTriggerStatus(c.name)}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>

@@ -5,6 +5,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import Card, { CardHeader, CardTitle } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import SitRepGenerator from "@/components/ai/SitRepGenerator";
 import {
   Users,
   FileText,
@@ -24,6 +25,7 @@ import {
   Edit3,
   MoreHorizontal,
   ArrowUpRight,
+  Sparkles,
 } from "lucide-react";
 
 // -- Mock collaboration data --
@@ -101,6 +103,7 @@ export default function CollaborationPage() {
   const [selectedProduct, setSelectedProduct] = useState<string>("sp-2");
   const [commentText, setCommentText] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showSitRepGenerator, setShowSitRepGenerator] = useState(false);
 
   const onlineCount = teamMembers.filter((m) => m.online).length;
 
@@ -132,6 +135,13 @@ export default function CollaborationPage() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowSitRepGenerator(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-violet-500/20 transition-all hover:from-violet-500 hover:to-blue-500 hover:shadow-violet-500/30"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                AI SitRep
+              </button>
               <Button variant="secondary" size="sm" icon={<Plus className="h-4 w-4" />}>
                 New Product
               </Button>
@@ -474,6 +484,11 @@ export default function CollaborationPage() {
           </div>
         </div>
       </main>
+
+      <SitRepGenerator
+        isOpen={showSitRepGenerator}
+        onClose={() => setShowSitRepGenerator(false)}
+      />
     </div>
   );
 }

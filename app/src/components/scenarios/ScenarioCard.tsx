@@ -15,6 +15,7 @@ import {
   Clock,
   User,
 } from "lucide-react";
+import AIScenarioBrief from "@/components/ai/AIScenarioBrief";
 
 const typeConfig: Record<
   Scenario["type"],
@@ -224,6 +225,18 @@ export default function ScenarioCard({
             <Download className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        {/* AI Scenario Brief */}
+        <AIScenarioBrief
+          name={scenario.name}
+          type={scenario.type}
+          status={scenario.status}
+          affectedPop={scenario.estimatedAffected}
+          facilities={scenario.estimatedFacilitiesAtRisk}
+          countries={scenario.affectedCountries}
+          createdBy={scenario.createdBy}
+          date={createdDate}
+        />
       </div>
     </div>
   );
