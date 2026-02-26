@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-5-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: maxTokens,
       system: systemPrompt,
       messages: messages,
@@ -30,9 +30,17 @@ export async function POST(request: NextRequest) {
       usage: response.usage,
     });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    console.error("AI API error:", message);
+    console.error("AI API error:", error);
+    let message = "AI service temporarily unavailable. Please try again.";
+    if (error instanceof Anthropic.APIError) {
+      if (error.status === 401) {
+        message = "API key is invalid. Please check your configuration.";
+      } else if (error.status === 429) {
+        message = "Rate limit reached. Please wait a moment and try again.";
+      } else if (error.status === 404) {
+        message = "AI model not available. Please contact the administrator.";
+      }
+    }
     return Response.json({ error: message }, { status: 500 });
   }
 }

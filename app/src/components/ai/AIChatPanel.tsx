@@ -69,10 +69,10 @@ export default function AIChatPanel() {
 
     const assistantMessage: AIMessage = {
       role: "assistant",
-      content:
-        result.error ||
-        result.content ||
-        "I'm sorry, I couldn't generate a response. Please try again.",
+      content: result.error
+        ? `⚠ ${result.error}`
+        : result.content ||
+          "I'm sorry, I couldn't generate a response. Please try again.",
     };
 
     setMessages((prev) => [...prev, assistantMessage]);
