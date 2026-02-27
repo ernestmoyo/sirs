@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "@/components/layout/Sidebar";
 import Card, { CardHeader, CardTitle } from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
@@ -75,11 +74,7 @@ export default function SettingsPage() {
   ).length;
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
-      <Sidebar />
-
-      <main className="flex-1 lg:pl-64">
-        <div className="p-6 lg:p-8">
+        <div className="space-y-6">
           {/* Page Header */}
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -610,7 +605,5 @@ export default function SettingsPage() {
             </Card>
           </div>
         </div>
-      </main>
-    </div>
   );
 }

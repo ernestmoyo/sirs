@@ -1,20 +1,20 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
     const { messages, systemPrompt, maxTokens = 1024 } = await request.json();
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return Response.json(
-        { error: "ANTHROPIC_API_KEY is not configured" },
+        { error: "ANTHROPIC_API_KEY is not configured. Add it in Vercel project settings." },
         { status: 500 }
       );
     }
+
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",
